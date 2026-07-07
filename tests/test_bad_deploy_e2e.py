@@ -56,3 +56,21 @@ def test_inconclusive_is_success_when_no_deploy():
     )
     diagnosis = llm.diagnose(alert=alert, evidence=evidence, runbook=None)
     assert diagnosis.status == DiagnosisStatus.INCONCLUSIVE
+
+
+def test_ambiguous_telemetry_escalates():
+    """The error spike has no correlating recent deploy, so Aegis must escalate and not act."""
+    wf = build_workflow(Mode.DRY_RUN)
+    alert = load_alert("ambiguous_telemetry")
+
+    inc = wf.run(alert=alert, scenario="ambiguous_telemetry")
+
+    assert inc.diagnosis is not None
+    assert inc.diagnosis.status == DiagnosisStatus.INCONCLUSIVE
+    # Restraint: no proposal, no approval, and the incident is escalated.
+    assert inc.proposal is None
+    assert inc.approval is None
+    assert inc.e2e_result is not None
+    assert inc.e2e_result.result == "Escalated (inconclusive)"
+    assert inc.e2e_result.action is None
+    assert any(ev.type == "escalated" for ev in inc.timeline)

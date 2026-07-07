@@ -1,0 +1,9 @@
+{
+  "root_cause": "inconclusive",
+  "expected_action": "escalate",
+  "expected_runbook": null,
+  "required_evidence": [
+    "error_rate_metric",
+    "application_error_logs"
+  ]
+}

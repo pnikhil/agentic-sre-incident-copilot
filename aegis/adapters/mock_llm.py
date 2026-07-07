@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from datetime import datetime
+
 from ..domain import policies
 from ..domain.schemas import (
     Alert,
@@ -29,8 +31,9 @@ class MockLLM(LLMPort):
         logs = evidence.by_kind("application_error_logs")
 
         # Evidence-first. We attribute a root cause only when the error spike
-        # correlates with a recent deployment.
-        if metric and deploy:
+        # correlates with a recent deployment, that is, the errors began just
+        # after a deploy that lies within the incident window.
+        if metric and deploy and self._deploy_correlates(metric, deploy):
             cited = [e.id for e in (metric, deploy, logs) if e is not None]
             revision = deploy.data.get("revision")
             return Diagnosis(
@@ -39,16 +42,27 @@ class MockLLM(LLMPort):
                 confidence=0.86,
                 cited_evidence_ids=cited,
                 rationale=(
-                    f"Error rate rose sharply immediately after revision {revision} was "
-                    "deployed; the previous revision was healthy, indicating the new "
+                    f"The error rate rose sharply just after revision {revision} was "
+                    "deployed, and the previous revision was healthy, so the new "
                     "deployment is the likely root cause."
+                ),
+            )
+
+        if metric and deploy:
+            return Diagnosis(
+                status=DiagnosisStatus.INCONCLUSIVE,
+                confidence=0.4,
+                rationale=(
+                    "The error spike does not correlate with any recent deployment. "
+                    "The latest deploy lies well outside the incident window, so a "
+                    "confident root cause cannot be established."
                 ),
             )
 
         return Diagnosis(
             status=DiagnosisStatus.INCONCLUSIVE,
             confidence=0.3,
-            rationale="Insufficient or conflicting evidence to attribute a root cause.",
+            rationale="There is insufficient or conflicting evidence to attribute a root cause.",
         )
 
     def critique(
@@ -78,3 +92,20 @@ class MockLLM(LLMPort):
                 "and within the runbook's allowed actions."
             ),
         )
+
+    @staticmethod
+    def _parse_ts(value) -> datetime | None:
+        if not value:
+            return None
+        try:
+            return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+        except ValueError:
+            return None
+
+    def _deploy_correlates(self, metric, deploy, window_minutes: int = 60) -> bool:
+        first_bad = self._parse_ts(metric.data.get("first_bad_ts"))
+        deployed_at = self._parse_ts(deploy.data.get("deployed_at"))
+        if first_bad is None or deployed_at is None:
+            return False
+        delta_seconds = (first_bad - deployed_at).total_seconds()
+        return 0 <= delta_seconds <= window_minutes * 60

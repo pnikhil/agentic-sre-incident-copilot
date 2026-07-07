@@ -1,7 +1,7 @@
 [project]
 name = "aegis-incident-copilot"
 version = "0.1.0"
-description = "Aegis — Agentic Incident Copilot (Milestone 1: local, CLI-first, mock-LLM)"
+description = "Aegis, an agentic incident copilot (local, CLI-first, mock-LLM)"
 requires-python = ">=3.11"
 dependencies = [
     "pydantic>=2.6",
@@ -10,9 +10,11 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
+demo = ["fastapi>=0.110", "uvicorn>=0.29"]
 
 [project.scripts]
 aegis = "aegis.cli:main"
+aegis-demo = "demoapp.cli:main"
 
 [build-system]
 requires = ["setuptools>=68"]
@@ -20,7 +22,7 @@ build-backend = "setuptools.build_meta"
 
 [tool.setuptools.packages.find]
 where = ["."]
-include = ["aegis*"]
+include = ["aegis*", "demoapp*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

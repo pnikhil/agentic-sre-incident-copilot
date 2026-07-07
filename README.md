@@ -43,6 +43,22 @@ python -m aegis.cli run --scenario bad_deploy
 pytest -q
 ```
 
+## Demo app (Milestone 2)
+
+The demoapp package is a small checkout-api that Aegis observes. It can inject a deterministic fault and emit telemetry in the very same shape that the Milestone 1 pipeline reads, so a fault toggle produces an incident that the copilot can diagnose.
+
+```powershell
+# emit a bad_deploy telemetry snapshot, and then diagnose it
+python -m demoapp.cli emit --fault bad_deploy --scenario generated_bad_deploy
+python -m aegis.cli run --scenario generated_bad_deploy
+
+# optional: run the live checkout-api (needs the demo extra)
+pip install -e ".[demo]"
+python -m demoapp.cli serve
+```
+
+The available faults are bad_deploy and latency_spike. Kindly note that the generated scenarios are written under data/scenarios/ and are gitignored.
+
 ## Sample end-to-end result row
 
 After a successful run, you will see a row like the one given below:

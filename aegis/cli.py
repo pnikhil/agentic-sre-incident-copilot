@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import argparse
+import os
 from pathlib import Path
 
 from .app.workflow import Workflow
@@ -97,7 +98,7 @@ def _print_report(inc: Incident) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    wf = build_workflow(Mode(args.mode))
+    wf = build_workflow(Mode(args.mode), profile_name=args.profile)
     alert = load_alert(args.scenario)
     incident = wf.run(alert=alert, scenario=args.scenario)
     _print_report(incident)
@@ -113,10 +114,21 @@ def main() -> None:
     run_p = sub.add_parser("run", help="Run the incident workflow on a scenario")
     run_p.add_argument("--scenario", default="bad_deploy", help="scenario folder under data/scenarios")
     run_p.add_argument("--mode", default="dry_run", choices=[m.value for m in Mode])
+    run_p.add_argument(
+        "--profile",
+        default=os.environ.get("AEGIS_PROFILE", "local-fixtures"),
+        help="platform profile under profiles/ (default: env AEGIS_PROFILE, else local-fixtures)",
+    )
     run_p.set_defaults(func=cmd_run)
 
     args = parser.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except (NotImplementedError, ValueError, FileNotFoundError) as exc:
+        # Kindly note that these are the expected profile and capability errors,
+        # so we show a clean message instead of a traceback.
+        print(f"aegis: {exc}")
+        raise SystemExit(1)
 
 
 if __name__ == "__main__":

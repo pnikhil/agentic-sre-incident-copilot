@@ -96,3 +96,13 @@ def test_gcp_profile_is_declarative_only():
     adapters = build_adapters(local, data_dir=DATA, artifacts_dir=ARTIFACTS)
     assert adapters.llm is not None
     assert adapters.telemetry is not None
+
+
+def test_build_workflow_gcp_profile_not_implemented():
+    """Through the real build_workflow entrypoint, the GCP profile is declarative only."""
+    import pytest
+
+    from aegis.domain.schemas import Mode
+
+    with pytest.raises(NotImplementedError):
+        build_workflow(Mode.DRY_RUN, profile_name="gcp-cloud-run")

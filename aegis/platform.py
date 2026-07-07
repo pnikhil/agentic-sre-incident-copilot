@@ -22,6 +22,7 @@ from .adapters.local_fixture_telemetry import LocalFixtureTelemetry
 from .adapters.local_runbook_store import LocalRunbookStore
 from .adapters.memory_approval_store import MemoryApprovalStore
 from .adapters.mock_llm import MockLLM
+from .domain.schemas import Capability
 from .ports.approval_store import ApprovalStorePort
 from .ports.audit_log import AuditLogPort
 from .ports.llm import LLMPort
@@ -43,7 +44,31 @@ class Profile(BaseModel):
     secret_provider: str = "env_file"
     vector_store: str = "local_markdown"
     tracing_exporter: str = "none"
-    capabilities: list[str] = Field(default_factory=list)
+    capabilities: list[Capability] = Field(default_factory=list)
+
+
+# The capabilities that the Milestone 1 workflow needs from any chosen profile.
+WORKFLOW_CAPABILITIES: list[Capability] = [
+    Capability.QUERY_LOGS,
+    Capability.FETCH_METRICS,
+    Capability.GET_RECENT_DEPLOYMENTS,
+    Capability.SEARCH_RUNBOOKS,
+    Capability.DRY_RUN_ROLLBACK,
+]
+
+
+def check_capabilities(profile: Profile, required: list[Capability]) -> None:
+    """Fails fast if the chosen profile does not advertise a needed capability.
+
+    Kindly note that this runs before any adapter is wired, so a wrong profile is
+    caught early with a clear message.
+    """
+    missing = [c for c in required if c not in profile.capabilities]
+    if missing:
+        raise ValueError(
+            f"The profile '{profile.name}' is missing the required capabilities: "
+            f"{[c.value for c in missing]}. Kindly pick a profile that supports them."
+        )
 
 
 @dataclass
@@ -82,6 +107,8 @@ def build_adapters(profile: Profile, *, data_dir: Path, artifacts_dir: Path) -> 
     other provider will raise NotImplementedError with a clear message, so that
     the seam is honest about what is ready and what is not.
     """
+    check_capabilities(profile, WORKFLOW_CAPABILITIES)
+
     if profile.llm_provider == "mock":
         llm: LLMPort = MockLLM()
     else:

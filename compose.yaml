@@ -1,0 +1,12 @@
+services:
+  aegis:
+    build: .
+    image: aegis-incident-copilot:local
+    volumes:
+      - ./artifacts:/app/artifacts
+    command: ["python", "-m", "aegis.cli", "run", "--scenario", "bad_deploy"]
+
+  test:
+    build: .
+    image: aegis-incident-copilot:local
+    command: ["python", "-m", "pytest", "-q"]

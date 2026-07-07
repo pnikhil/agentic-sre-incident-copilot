@@ -13,7 +13,7 @@ A platform profile decides which adapters are wired at the composition root. Kin
 - profiles/local-fixtures.yaml, which is fully implemented and is used for all local work, the tests, and the demos.
 - profiles/gcp-cloud-run.yaml, which is the reference deployment. The same is declarative for now, and its adapters (Vertex AI Gemini, Cloud Logging and Monitoring, Cloud Run, Secret Manager, Cloud Trace) will come in the later milestones.
 
-In short, GCP, Vertex AI, and Cloud Run are simply one adapter set. The product is not trapped in a single cloud.
+In short, GCP, Vertex AI, and Cloud Run are simply one adapter set. The core is provider-neutral, and GCP is the reference deployment, not a dependency of the incident workflow.
 
 ## Why local-first
 
@@ -40,19 +40,50 @@ Given the bad_deploy scenario, Aegis does the following:
 
 ## How to run
 
-Please follow the steps below (Windows PowerShell):
+Aegis runs the same way on Linux, macOS, and Windows. Kindly pick whichever path suits you.
 
-```powershell
+### Option A: Docker (the most reproducible, OS-agnostic path)
+
+```bash
+docker compose run --rm aegis     # run the workflow on the bad_deploy scenario
+docker compose run --rm test      # run the tests
+```
+
+Or without compose:
+
+```bash
+docker build -t aegis-incident-copilot .
+docker run --rm aegis-incident-copilot
+```
+
+### Option B: uv (the fastest native path)
+
+```bash
+uv sync --extra dev
+uv run python -m aegis.cli run --scenario bad_deploy
+uv run pytest -q
+```
+
+### Option C: plain pip and venv
+
+```bash
 python -m venv .venv
-.\.venv\Scripts\Activate.ps1
+# Linux or macOS: source .venv/bin/activate
+# Windows PowerShell: .\.venv\Scripts\Activate.ps1
 pip install -e ".[dev]"
-
-# run the workflow on the bad_deploy scenario
 python -m aegis.cli run --scenario bad_deploy
-
-# run the tests
 pytest -q
 ```
+
+### Choosing a platform profile
+
+The workflow picks its adapters from a profile. The default is local-fixtures. You may also select one explicitly, or set the AEGIS_PROFILE environment variable:
+
+```bash
+python -m aegis.cli run --scenario bad_deploy --profile local-fixtures
+```
+
+Kindly note that the gcp-cloud-run profile is declarative for now, so selecting it will raise a clear message that its adapters are not implemented yet.
 
 ## Demo app (Milestone 2)
 

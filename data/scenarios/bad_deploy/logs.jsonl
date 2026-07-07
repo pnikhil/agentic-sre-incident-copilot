@@ -1,0 +1,8 @@
+{"ts":"2026-07-06T13:50:00Z","level":"INFO","service":"checkout-api","msg":"health check ok"}
+{"ts":"2026-07-06T14:00:05Z","level":"INFO","service":"checkout-api","msg":"deployed revision checkout-api-00042"}
+{"ts":"2026-07-06T14:05:12Z","level":"ERROR","service":"checkout-api","msg":"NullPointerException in CheckoutHandler.process"}
+{"ts":"2026-07-06T14:06:03Z","level":"ERROR","service":"checkout-api","msg":"NullPointerException in CheckoutHandler.process"}
+{"ts":"2026-07-06T14:07:41Z","level":"ERROR","service":"checkout-api","msg":"NullPointerException in CheckoutHandler.process"}
+{"ts":"2026-07-06T14:08:55Z","level":"ERROR","service":"checkout-api","msg":"NullPointerException in CheckoutHandler.process"}
+{"ts":"2026-07-06T14:09:37Z","level":"ERROR","service":"checkout-api","msg":"NullPointerException in CheckoutHandler.process"}
+{"ts":"2026-07-06T14:09:58Z","level":"WARN","service":"checkout-api","msg":"upstream latency elevated"}

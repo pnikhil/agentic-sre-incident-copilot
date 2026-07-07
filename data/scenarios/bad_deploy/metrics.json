@@ -1,0 +1,17 @@
+{
+  "service": "checkout-api",
+  "series": [
+    {
+      "name": "http_5xx_rate",
+      "unit": "ratio",
+      "window": "1m",
+      "baseline": 0.003,
+      "points": [
+        { "ts": "2026-07-06T13:55:00Z", "value": 0.002 },
+        { "ts": "2026-07-06T14:00:00Z", "value": 0.003 },
+        { "ts": "2026-07-06T14:05:00Z", "value": 0.081 },
+        { "ts": "2026-07-06T14:10:00Z", "value": 0.134 }
+      ]
+    }
+  ]
+}

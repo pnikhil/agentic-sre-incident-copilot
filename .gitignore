@@ -1,0 +1,39 @@
+sentinel-checklist.md
+
+# --- Python ---
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+env/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+
+# --- Secrets / config ---
+.env
+.env.*
+*.key
+*-key.json
+service-account*.json
+
+# --- Run outputs / local trace-replay artifacts ---
+artifacts/
+
+# --- Terraform ---
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+crash.log
+
+# --- Node / UI (later) ---
+node_modules/
+
+# --- OS / editor ---
+.DS_Store
+Thumbs.db

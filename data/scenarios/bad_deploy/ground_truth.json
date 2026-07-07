@@ -1,0 +1,10 @@
+{
+  "root_cause": "bad_deploy",
+  "expected_action": "rollback_service",
+  "expected_runbook": "checkout-bad-deploy-rollback",
+  "required_evidence": [
+    "error_rate_metric",
+    "recent_deployment",
+    "application_error_logs"
+  ]
+}

@@ -1,0 +1,16 @@
+{
+  "service": "checkout-api",
+  "deployments": [
+    {
+      "revision": "checkout-api-00041",
+      "deployed_at": "2026-07-05T09:00:00Z",
+      "status": "healthy"
+    },
+    {
+      "revision": "checkout-api-00042",
+      "deployed_at": "2026-07-06T14:00:00Z",
+      "status": "active",
+      "previous_stable": "checkout-api-00041"
+    }
+  ]
+}

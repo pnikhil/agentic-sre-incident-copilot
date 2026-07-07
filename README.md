@@ -4,6 +4,17 @@ Aegis is an evidence-driven, policy-gated SRE incident copilot. It takes a produ
 
 The larger vision is a multi-agent system running on Vertex AI Gemini, with MCP tools, grounded runbook RAG, evaluation pipelines, incident_id tracing, and a Terraform-based GCP deployment. As of now, Milestone 1 is complete and fully local.
 
+## Platform-agnostic core, GCP as the reference deployment
+
+Aegis is platform-agnostic in its design, and GCP-native in its reference implementation. The incident workflow core does not know about any specific cloud. It works only with provider-neutral contracts, such as ServiceRef, ResourceRef, TelemetrySummary, Evidence, RunbookMatch, Diagnosis, RemediationProposal, and RollbackTarget. All the platform-specific details live in the adapters.
+
+A platform profile decides which adapters are wired at the composition root. Kindly find the two profiles below:
+
+- profiles/local-fixtures.yaml, which is fully implemented and is used for all local work, the tests, and the demos.
+- profiles/gcp-cloud-run.yaml, which is the reference deployment. The same is declarative for now, and its adapters (Vertex AI Gemini, Cloud Logging and Monitoring, Cloud Run, Secret Manager, Cloud Trace) will come in the later milestones.
+
+In short, GCP, Vertex AI, and Cloud Run are simply one adapter set. The product is not trapped in a single cloud.
+
 ## Why local-first
 
 We have deliberately built the first milestone to run entirely on your machine, with no cloud dependencies and no API keys. The reasons are quite simple:

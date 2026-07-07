@@ -3,29 +3,31 @@ from __future__ import annotations
 import argparse
 from pathlib import Path
 
-from .adapters.fake_executor import FakeExecutor
-from .adapters.file_audit_log import FileAuditLog
-from .adapters.local_fixture_telemetry import LocalFixtureTelemetry
-from .adapters.local_runbook_store import LocalRunbookStore
-from .adapters.memory_approval_store import MemoryApprovalStore
-from .adapters.mock_llm import MockLLM
 from .app.workflow import Workflow
 from .domain.schemas import Alert, Incident, Mode
+from .platform import build_adapters, load_profile
 
 ROOT = Path(__file__).resolve().parents[1]  # Aegis/
 DATA = ROOT / "data"
 ARTIFACTS = ROOT / "artifacts"
 
 
-def build_workflow(mode: Mode = Mode.DRY_RUN) -> Workflow:
-    """The composition root. It wires the local and mock adapters into the workflow."""
+def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixtures") -> Workflow:
+    """The composition root. It loads a platform profile and wires the matching adapters.
+
+    Kindly note that only the local-fixtures profile is implemented as of now. The
+    gcp-cloud-run profile is declarative, and its adapters will come in the later
+    milestones (the GCP reference deployment).
+    """
+    profile = load_profile(profile_name)
+    adapters = build_adapters(profile, data_dir=DATA, artifacts_dir=ARTIFACTS)
     return Workflow(
-        telemetry=LocalFixtureTelemetry(DATA),
-        runbooks=LocalRunbookStore(DATA / "runbooks"),
-        llm=MockLLM(),
-        executor=FakeExecutor(),
-        approvals_store=MemoryApprovalStore(),
-        audit=FileAuditLog(ARTIFACTS / "audit.jsonl"),
+        telemetry=adapters.telemetry,
+        runbooks=adapters.runbooks,
+        llm=adapters.llm,
+        executor=adapters.executor,
+        approvals_store=adapters.approvals,
+        audit=adapters.audit,
         artifacts_dir=ARTIFACTS,
         mode=mode,
     )
@@ -59,7 +61,8 @@ def _print_report(inc: Incident) -> None:
 
     if inc.proposal:
         p = inc.proposal
-        print(f"\nPROPOSAL: {p.action}  params={p.params}")
+        print(f"\nPROPOSAL: {p.action}  target={p.target.service}/{p.target.environment}")
+        print(f"  strategy={p.rollback_target.strategy}  to_revision={p.rollback_target.to_revision}")
         print(f"  grounded={p.runbook_evidence.grounded}  quote=\"{p.runbook_evidence.evidence_quote}\"")
         print(f"  rollback: {p.rollback_plan}")
 

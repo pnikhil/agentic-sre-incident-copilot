@@ -1,0 +1,23 @@
+# The GCP reference-deployment profile. Kindly note that this profile is
+# declarative for now. The adapters named below are not implemented yet, and
+# they will come in the later milestones. The purpose of keeping it here is to
+# prove that the core is platform-agnostic, and that GCP is simply one adapter
+# set selected at the composition root.
+name: gcp-cloud-run
+llm_provider: vertex_gemini
+telemetry_provider: cloud_logging_monitoring
+deployment_provider: cloud_run
+approval_provider: local_web
+secret_provider: secret_manager
+vector_store: local_chroma
+tracing_exporter: cloud_trace
+capabilities:
+  - query_logs
+  - fetch_metrics
+  - get_recent_deployments
+  - search_runbooks
+  - dry_run_rollback
+  - execute_rollback
+  - verify_recovery
+  - redact_secret_fields
+  - emit_trace

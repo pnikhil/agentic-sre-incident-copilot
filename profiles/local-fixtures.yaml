@@ -1,0 +1,17 @@
+# The local-fixtures profile. This one is fully implemented and is used for all
+# local development, the tests, and the demos. No cloud, no API keys.
+name: local-fixtures
+llm_provider: mock
+telemetry_provider: fixture
+deployment_provider: fake_executor
+approval_provider: memory
+secret_provider: env_file
+vector_store: local_markdown
+tracing_exporter: none
+capabilities:
+  - query_logs
+  - fetch_metrics
+  - get_recent_deployments
+  - search_runbooks
+  - dry_run_rollback
+  - verify_recovery

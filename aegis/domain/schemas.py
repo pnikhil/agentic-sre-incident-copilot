@@ -50,6 +50,20 @@ class Mode(str, Enum):
     APPROVED_WRITES = "approved_writes"
 
 
+class Capability(str, Enum):
+    """The abstract capabilities that an adapter can advertise for a given platform."""
+
+    QUERY_LOGS = "query_logs"
+    FETCH_METRICS = "fetch_metrics"
+    GET_RECENT_DEPLOYMENTS = "get_recent_deployments"
+    SEARCH_RUNBOOKS = "search_runbooks"
+    DRY_RUN_ROLLBACK = "dry_run_rollback"
+    EXECUTE_ROLLBACK = "execute_rollback"
+    VERIFY_RECOVERY = "verify_recovery"
+    REDACT_SECRET_FIELDS = "redact_secret_fields"
+    EMIT_TRACE = "emit_trace"
+
+
 class ApprovalStatus(str, Enum):
     PENDING = "pending"
     APPROVED = "approved"
@@ -68,6 +82,25 @@ class Alert(BaseModel):
     severity: str = "unknown"
     fired_at: datetime
     labels: dict[str, str] = Field(default_factory=dict)
+
+
+class ServiceRef(BaseModel):
+    """A provider-neutral reference to a service. Kindly note that the platform and
+    the resource_id are opaque to the core, and are filled in by the platform adapter."""
+
+    service: str
+    environment: str = "unknown"
+    platform: str = "unknown"  # for example gcp-cloud-run, kubernetes, local-fixtures
+    resource_id: str | None = None
+
+
+class ResourceRef(BaseModel):
+    """A provider-neutral reference to any resource, such as a service, a database, or a queue."""
+
+    kind: str
+    name: str
+    platform: str = "unknown"
+    resource_id: str | None = None
 
 
 class RawTelemetry(BaseModel):
@@ -166,6 +199,15 @@ class RunbookEvidence(BaseModel):
     grounded: bool
 
 
+class RollbackTarget(BaseModel):
+    """An abstract rollback intent. The platform adapter translates the strategy into a
+    concrete operation, such as a Cloud Run traffic shift or a kubectl rollout undo."""
+
+    strategy: str = "previous_stable_revision"
+    to_revision: str | None = None
+    from_revision: str | None = None
+
+
 # --- Reasoning outputs ---------------------------------------------------
 
 
@@ -179,8 +221,8 @@ class Diagnosis(BaseModel):
 
 class RemediationProposal(BaseModel):
     action: str
-    target: str
-    params: dict[str, Any] = Field(default_factory=dict)
+    target: ServiceRef
+    rollback_target: RollbackTarget
     rollback_plan: str
     cited_evidence_ids: list[str] = Field(default_factory=list)
     runbook_evidence: RunbookEvidence

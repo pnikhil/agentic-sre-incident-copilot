@@ -6,8 +6,10 @@ from ..domain.schemas import (
     Diagnosis,
     EvidenceStack,
     RemediationProposal,
+    RollbackTarget,
     RunbookDoc,
     RunbookEvidence,
+    ServiceRef,
 )
 
 # A quote we expect to find word-for-word in the rollback runbook. Kindly note
@@ -40,22 +42,37 @@ class RemediationPlanner:
         deploy = evidence.by_kind("recent_deployment")
         previous_stable = (deploy.data.get("previous_stable") if deploy else None) or "previous-stable"
         current_revision = deploy.data.get("revision") if deploy else None
-        params = {"to_revision": previous_stable, "from_revision": current_revision}
+
+        # The core stays provider-neutral. The platform and the resource_id are
+        # left for the executor adapter to resolve later.
+        target = ServiceRef(
+            service=alert.service,
+            environment=alert.labels.get("env", "unknown"),
+        )
+        rollback_target = RollbackTarget(
+            strategy="previous_stable_revision",
+            to_revision=previous_stable,
+            from_revision=current_revision,
+        )
 
         quote = _ROLLBACK_QUOTE
         if not policies.quote_is_grounded(quote, runbook.body):
             quote = _first_sentence(runbook.body)
         grounded = policies.quote_is_grounded(quote, runbook.body)
 
-        payload = {"action": action, "target": alert.service, "params": params}
+        payload = {
+            "action_type": action,
+            "target": target.model_dump(),
+            "rollback_target": rollback_target.model_dump(),
+        }
 
         return RemediationProposal(
             action=action,
-            target=alert.service,
-            params=params,
+            target=target,
+            rollback_target=rollback_target,
             rollback_plan=(
-                f"Re-deploy {previous_stable} (previous healthy revision) for "
-                f"{alert.service}; fully reversible."
+                f"Re-deploy {previous_stable} (the previous healthy revision) for "
+                f"{alert.service}. The same is fully reversible."
             ),
             cited_evidence_ids=diagnosis.cited_evidence_ids,
             runbook_evidence=RunbookEvidence(

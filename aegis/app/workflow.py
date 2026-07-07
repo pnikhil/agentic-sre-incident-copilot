@@ -136,7 +136,8 @@ class Workflow:
         emit(Actor.AGENT, "runbook.evidence.attached",
              f"grounded={proposal.runbook_evidence.grounded}",
              state=IncidentState.RUNBOOK_EVIDENCE_ATTACHED)
-        emit(Actor.AGENT, "remediation.planned", f"{proposal.action} -> {proposal.params}",
+        emit(Actor.AGENT, "remediation.planned",
+             f"{proposal.action} -> {proposal.rollback_target.strategy}",
              proposal.cited_evidence_ids, state=IncidentState.REMEDIATION_PLANNED)
 
         # --- Critic / policy (bounded, single pass) ---

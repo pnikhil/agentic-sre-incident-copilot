@@ -24,6 +24,8 @@ def test_bad_deploy_first_demo_contract():
     assert inc.proposal is not None
     assert inc.proposal.action == "rollback_service"
     assert inc.proposal.runbook_evidence.grounded is True
+    assert inc.proposal.target.service == alert.service
+    assert inc.proposal.rollback_target.strategy == "previous_stable_revision"
 
     # 6. bounded critic passed
     assert inc.policy_check is not None
@@ -74,3 +76,23 @@ def test_ambiguous_telemetry_escalates():
     assert inc.e2e_result.result == "Escalated (inconclusive)"
     assert inc.e2e_result.action is None
     assert any(ev.type == "escalated" for ev in inc.timeline)
+
+
+def test_gcp_profile_is_declarative_only():
+    """The GCP reference profile loads, but kindly note that its adapters are not
+    implemented yet, whereas the local-fixtures profile builds cleanly."""
+    import pytest
+
+    from aegis.cli import ARTIFACTS, DATA
+    from aegis.platform import build_adapters, load_profile
+
+    gcp = load_profile("gcp-cloud-run")
+    assert gcp.name == "gcp-cloud-run"
+    assert gcp.llm_provider == "vertex_gemini"
+    with pytest.raises(NotImplementedError):
+        build_adapters(gcp, data_dir=DATA, artifacts_dir=ARTIFACTS)
+
+    local = load_profile("local-fixtures")
+    adapters = build_adapters(local, data_dir=DATA, artifacts_dir=ARTIFACTS)
+    assert adapters.llm is not None
+    assert adapters.telemetry is not None

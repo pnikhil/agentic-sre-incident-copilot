@@ -56,6 +56,15 @@ docker build -t aegis-incident-copilot .
 docker run --rm aegis-incident-copilot
 ```
 
+The plain `docker run` above is ephemeral. To persist the artifact bundles to your host, kindly mount the folder (the compose `aegis` service already does this):
+
+```bash
+# Linux or macOS
+docker run --rm -v "$PWD/artifacts:/app/artifacts" aegis-incident-copilot
+# Windows PowerShell
+docker run --rm -v ${PWD}/artifacts:/app/artifacts aegis-incident-copilot
+```
+
 ### Option B: uv (the fastest native path)
 
 ```bash
@@ -70,9 +79,9 @@ uv run pytest -q
 python -m venv .venv
 # Linux or macOS: source .venv/bin/activate
 # Windows PowerShell: .\.venv\Scripts\Activate.ps1
-pip install -e ".[dev]"
+python -m pip install -e ".[dev]"
 python -m aegis.cli run --scenario bad_deploy
-pytest -q
+python -m pytest -q
 ```
 
 ### Choosing a platform profile
@@ -89,13 +98,13 @@ Kindly note that the gcp-cloud-run profile is declarative for now, so selecting 
 
 The demoapp package is a small checkout-api that Aegis observes. It can inject a deterministic fault and emit telemetry in the very same shape that the Milestone 1 pipeline reads, so a fault toggle produces an incident that the copilot can diagnose.
 
-```powershell
+```bash
 # emit a bad_deploy telemetry snapshot, and then diagnose it
 python -m demoapp.cli emit --fault bad_deploy --scenario generated_bad_deploy
 python -m aegis.cli run --scenario generated_bad_deploy
 
 # optional: run the live checkout-api (needs the demo extra)
-pip install -e ".[demo]"
+python -m pip install -e ".[demo]"
 python -m demoapp.cli serve
 ```
 

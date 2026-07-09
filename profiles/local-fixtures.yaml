@@ -6,7 +6,7 @@ telemetry_provider: fixture
 deployment_provider: fake_executor
 approval_provider: memory
 secret_provider: env_file
-vector_store: local_markdown
+vector_store: local_vector
 tracing_exporter: none
 capabilities:
   - query_logs

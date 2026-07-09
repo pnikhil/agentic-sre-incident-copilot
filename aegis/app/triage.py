@@ -1,50 +1,66 @@
 from __future__ import annotations
 
 from collections import Counter
-from datetime import datetime, timezone
 
 from ..domain.schemas import (
     Evidence,
     EvidenceStack,
-    RawTelemetry,
     SignalSummary,
     TelemetrySummary,
     ToolCallRecord,
 )
-
-
-def _now() -> datetime:
-    return datetime.now(timezone.utc)
+from ..mcp.gateway import MCPToolGateway
 
 
 class TriageAgent:
-    """Side-channel summarisation. It parses the raw telemetry into compact
-    signals and evidence outside the model. The model only ever sees the
-    structured summaries, and never the raw logs."""
+    """Side-channel summarisation. It calls the diagnostic tools through the MCP
+    gateway, and parses the raw tool output into compact signals and evidence
+    outside the model. The model only ever sees the structured summaries, and
+    never the raw logs."""
+
+    _DEFAULT_TOOLS = ["fetch_metrics", "query_logs", "get_recent_deployments"]
 
     def run(
-        self, incident_id: str, raw: RawTelemetry
+        self,
+        incident_id: str,
+        gateway: MCPToolGateway,
+        *,
+        scenario: str,
+        service: str,
+        recipe: list[dict] | None = None,
     ) -> tuple[TelemetrySummary, EvidenceStack, list[ToolCallRecord]]:
         signals: list[SignalSummary] = []
         evidence: list[Evidence] = []
         tool_calls: list[ToolCallRecord] = []
 
-        self._summarize_metrics(incident_id, raw, signals, evidence, tool_calls)
-        self._summarize_logs(incident_id, raw, signals, evidence, tool_calls)
-        self._summarize_deployments(incident_id, raw, signals, evidence, tool_calls)
+        # The runbook's evidence_recipe decides which tools to run and in what
+        # order. Kindly note that when no recipe is given, we fall back to the
+        # default set of collectors.
+        tools = [str(step.get("tool")) for step in recipe] if recipe else list(self._DEFAULT_TOOLS)
+        done: set[str] = set()
+        args = {"scenario": scenario, "service": service}
+        for tool in tools:
+            if tool in done:
+                continue
+            done.add(tool)
+            if tool == "fetch_metrics":
+                result, record = gateway.call("fetch_metrics", args, incident_id=incident_id)
+                tool_calls.append(record)
+                self._summarize_metrics(service, result.series, signals, evidence)
+            elif tool == "query_logs":
+                result, record = gateway.call("query_logs", args, incident_id=incident_id)
+                tool_calls.append(record)
+                self._summarize_logs(service, result.entries, signals, evidence)
+            elif tool == "get_recent_deployments":
+                result, record = gateway.call("get_recent_deployments", args, incident_id=incident_id)
+                tool_calls.append(record)
+                self._summarize_deployments(service, result.deployments, signals, evidence)
 
         return TelemetrySummary(signals=signals), EvidenceStack(items=evidence), tool_calls
 
     @staticmethod
-    def _summarize_metrics(incident_id, raw, signals, evidence, tool_calls) -> None:
-        series = raw.metrics.get("series") or []
+    def _summarize_metrics(service, series, signals, evidence) -> None:
         metric = next((s for s in series if s.get("name") == "http_5xx_rate"), None)
-        tool_calls.append(
-            ToolCallRecord(
-                id="tc_001", incident_id=incident_id, tool="fetch_metrics",
-                args={"signal": "http_5xx_rate"}, started_at=_now(),
-            )
-        )
         if not metric or not metric.get("points"):
             return
         baseline = float(metric.get("baseline", 0.0))
@@ -54,7 +70,7 @@ class TriageAgent:
         first_bad = next((p for p in points if p["value"] > threshold), None)
         signals.append(
             SignalSummary(
-                signal_type="metric", service=raw.service,
+                signal_type="metric", service=service,
                 summary=f"http_5xx_rate peaked at {peak['value']:.1%} (baseline {baseline:.1%})",
                 value=peak["value"], baseline=baseline,
                 first_seen=first_bad["ts"] if first_bad else None, last_seen=peak["ts"],
@@ -75,14 +91,8 @@ class TriageAgent:
             )
 
     @staticmethod
-    def _summarize_logs(incident_id, raw, signals, evidence, tool_calls) -> None:
-        tool_calls.append(
-            ToolCallRecord(
-                id="tc_002", incident_id=incident_id, tool="query_logs",
-                args={"query": "ERROR OR 5xx OR exception"}, started_at=_now(),
-            )
-        )
-        errors = [log for log in (raw.logs or []) if str(log.get("level", "")).upper() == "ERROR"]
+    def _summarize_logs(service, entries, signals, evidence) -> None:
+        errors = [log for log in (entries or []) if str(log.get("level", "")).upper() == "ERROR"]
         if not errors:
             return
         pattern, count = Counter(log.get("msg", "") for log in errors).most_common(1)[0]
@@ -91,7 +101,7 @@ class TriageAgent:
         last_seen = max(log["ts"] for log in errors)
         signals.append(
             SignalSummary(
-                signal_type="log_pattern", service=raw.service, summary=pattern,
+                signal_type="log_pattern", service=service, summary=pattern,
                 count=count, first_seen=first_seen, last_seen=last_seen, sample_ids=sample_ids,
             )
         )
@@ -105,20 +115,13 @@ class TriageAgent:
         )
 
     @staticmethod
-    def _summarize_deployments(incident_id, raw, signals, evidence, tool_calls) -> None:
-        tool_calls.append(
-            ToolCallRecord(
-                id="tc_003", incident_id=incident_id, tool="get_recent_deployments",
-                args={"window": "2h"}, started_at=_now(),
-            )
-        )
-        deployments = raw.deployments.get("deployments") or []
+    def _summarize_deployments(service, deployments, signals, evidence) -> None:
         if not deployments:
             return
         latest = sorted(deployments, key=lambda d: d["deployed_at"])[-1]
         signals.append(
             SignalSummary(
-                signal_type="deployment", service=raw.service,
+                signal_type="deployment", service=service,
                 summary=f"revision {latest['revision']} deployed at {latest['deployed_at']}",
                 last_seen=latest["deployed_at"],
             )

@@ -6,6 +6,8 @@ from pathlib import Path
 
 from .app.workflow import Workflow
 from .domain.schemas import Alert, Incident, Mode
+from .mcp.gateway import MCPToolGateway
+from .mcp.tools import DiagnosticTools
 from .platform import build_adapters, load_profile
 
 ROOT = Path(__file__).resolve().parents[1]  # Aegis/
@@ -22,9 +24,9 @@ def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixture
     """
     profile = load_profile(profile_name)
     adapters = build_adapters(profile, data_dir=DATA, artifacts_dir=ARTIFACTS)
+    gateway = MCPToolGateway(DiagnosticTools(adapters.telemetry, adapters.runbooks))
     return Workflow(
-        telemetry=adapters.telemetry,
-        runbooks=adapters.runbooks,
+        gateway=gateway,
         llm=adapters.llm,
         executor=adapters.executor,
         approvals_store=adapters.approvals,

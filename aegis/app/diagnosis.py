@@ -8,24 +8,15 @@ from ..domain.schemas import (
     RunbookMatch,
 )
 from ..ports.llm import LLMPort
-from ..ports.runbook_store import RunbookStorePort
 
 
 class DiagnosisAgent:
-    """Retrieves the applicable runbook, evaluates whether it applies, and then diagnoses."""
+    """Evaluates whether a runbook applies to the collected evidence, and then
+    diagnoses the root cause. Kindly note that the runbook retrieval itself is
+    done by the workflow through the MCP gateway."""
 
-    def __init__(self, llm: LLMPort, runbooks: RunbookStorePort):
+    def __init__(self, llm: LLMPort):
         self.llm = llm
-        self.runbooks = runbooks
-
-    def retrieve_runbook(self, alert: Alert, evidence: EvidenceStack) -> RunbookDoc | None:
-        query_terms = [alert.service, alert.condition]
-        query_terms += [e.summary for e in evidence.items]
-        query_terms += ["rollback", "deployment", "error", "rate", "5xx", "revision"]
-        hits = self.runbooks.search(" ".join(query_terms), limit=3)
-        if not hits or hits[0].score <= 0:
-            return None
-        return self.runbooks.get(hits[0].runbook_id)
 
     def match(self, runbook: RunbookDoc, evidence: EvidenceStack) -> RunbookMatch:
         satisfied = set(runbook.required_evidence).issubset(evidence.kinds())

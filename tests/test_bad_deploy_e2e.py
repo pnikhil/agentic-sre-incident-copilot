@@ -43,6 +43,13 @@ def test_bad_deploy_first_demo_contract():
     assert inc.e2e_result.action == "rollback_service"
     assert inc.e2e_result.safety_gate == "Pass"
 
+    # M4: the agents call tools only through the MCP gateway, and every tool call
+    # is recorded and stamped with the incident_id.
+    tool_names = {tc.tool for tc in inc.tool_calls}
+    assert {"search_runbooks", "fetch_metrics", "query_logs",
+            "get_recent_deployments"} <= tool_names
+    assert all(tc.incident_id == inc.incident_id for tc in inc.tool_calls)
+
 
 def test_inconclusive_is_success_when_no_deploy():
     """Restraint check. With no correlating deploy evidence, Aegis must not make up a cause."""
@@ -96,6 +103,64 @@ def test_gcp_profile_is_declarative_only():
     adapters = build_adapters(local, data_dir=DATA, artifacts_dir=ARTIFACTS)
     assert adapters.llm is not None
     assert adapters.telemetry is not None
+
+
+def test_tfidf_store_ranks_rollback_over_latency():
+    """The local vector store should rank the rollback runbook above the latency one."""
+    from aegis.adapters.tfidf_runbook_store import TfidfRunbookStore
+    from aegis.cli import DATA
+
+    store = TfidfRunbookStore(DATA / "runbooks")
+    hits = store.search("checkout-api http 5xx error rate after deployment", limit=2)
+    assert hits[0].runbook_id == "checkout-bad-deploy-rollback"
+    assert hits[0].score > 0
+
+
+def test_triage_follows_recipe_subset():
+    """When the recipe names only one tool, triage must collect only that evidence."""
+    from aegis.adapters.local_fixture_telemetry import LocalFixtureTelemetry
+    from aegis.adapters.tfidf_runbook_store import TfidfRunbookStore
+    from aegis.app.triage import TriageAgent
+    from aegis.cli import DATA
+    from aegis.mcp.gateway import MCPToolGateway
+    from aegis.mcp.tools import DiagnosticTools
+
+    gateway = MCPToolGateway(
+        DiagnosticTools(LocalFixtureTelemetry(DATA), TfidfRunbookStore(DATA / "runbooks"))
+    )
+    _telemetry, evidence, tool_calls = TriageAgent().run(
+        "inc_test", gateway, scenario="bad_deploy", service="checkout-api",
+        recipe=[{"tool": "fetch_metrics"}],
+    )
+    assert "error_rate_metric" in evidence.kinds()
+    assert "recent_deployment" not in evidence.kinds()
+    assert len(tool_calls) == 1
+    assert tool_calls[0].tool == "fetch_metrics"
+    assert tool_calls[0].incident_id == "inc_test"
+
+
+def test_mcp_gateway_records_and_returns_typed_results():
+    """The gateway must return typed results and a ToolCallRecord for each call."""
+    from aegis.adapters.local_fixture_telemetry import LocalFixtureTelemetry
+    from aegis.adapters.tfidf_runbook_store import TfidfRunbookStore
+    from aegis.cli import DATA
+    from aegis.mcp.gateway import MCPToolGateway
+    from aegis.mcp.tools import DiagnosticTools
+
+    gateway = MCPToolGateway(
+        DiagnosticTools(LocalFixtureTelemetry(DATA), TfidfRunbookStore(DATA / "runbooks"))
+    )
+    assert set(gateway.list_tools()) == {
+        "fetch_metrics", "query_logs", "get_recent_deployments", "search_runbooks"
+    }
+    result, record = gateway.call(
+        "search_runbooks", {"query": "checkout-api 5xx after deployment", "limit": 2},
+        incident_id="inc_gw",
+    )
+    assert result.hits and result.hits[0].id == "checkout-bad-deploy-rollback"
+    assert record.tool == "search_runbooks"
+    assert record.incident_id == "inc_gw"
+    assert record.ok is True
 
 
 def test_build_workflow_gcp_profile_not_implemented():

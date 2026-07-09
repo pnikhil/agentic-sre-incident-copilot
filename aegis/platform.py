@@ -22,6 +22,7 @@ from .adapters.local_fixture_telemetry import LocalFixtureTelemetry
 from .adapters.local_runbook_store import LocalRunbookStore
 from .adapters.memory_approval_store import MemoryApprovalStore
 from .adapters.mock_llm import MockLLM
+from .adapters.tfidf_runbook_store import TfidfRunbookStore
 from .domain.schemas import Capability
 from .ports.approval_store import ApprovalStorePort
 from .ports.audit_log import AuditLogPort
@@ -121,6 +122,8 @@ def build_adapters(profile: Profile, *, data_dir: Path, artifacts_dir: Path) -> 
 
     if profile.vector_store == "local_markdown":
         runbooks: RunbookStorePort = LocalRunbookStore(data_dir / "runbooks")
+    elif profile.vector_store in ("local_vector", "local_tfidf"):
+        runbooks = TfidfRunbookStore(data_dir / "runbooks")
     else:
         _not_implemented(profile.vector_store, "vector_store")
 

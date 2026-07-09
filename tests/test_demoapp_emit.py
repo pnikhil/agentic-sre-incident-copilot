@@ -3,20 +3,24 @@
 from aegis.adapters.fake_executor import FakeExecutor
 from aegis.adapters.file_audit_log import FileAuditLog
 from aegis.adapters.local_fixture_telemetry import LocalFixtureTelemetry
-from aegis.adapters.local_runbook_store import LocalRunbookStore
 from aegis.adapters.memory_approval_store import MemoryApprovalStore
 from aegis.adapters.mock_llm import MockLLM
+from aegis.adapters.tfidf_runbook_store import TfidfRunbookStore
 from aegis.app.workflow import Workflow
 from aegis.cli import DATA
 from aegis.domain.schemas import Alert, DiagnosisStatus, Mode, Verdict
+from aegis.mcp.gateway import MCPToolGateway
+from aegis.mcp.tools import DiagnosticTools
 from demoapp.emit import write_scenario
 from demoapp.faults import Fault
 
 
 def _workflow(tmp_path):
+    telemetry = LocalFixtureTelemetry(tmp_path)
+    runbooks = TfidfRunbookStore(DATA / "runbooks")
+    gateway = MCPToolGateway(DiagnosticTools(telemetry, runbooks))
     return Workflow(
-        telemetry=LocalFixtureTelemetry(tmp_path),
-        runbooks=LocalRunbookStore(DATA / "runbooks"),
+        gateway=gateway,
         llm=MockLLM(),
         executor=FakeExecutor(),
         approvals_store=MemoryApprovalStore(),

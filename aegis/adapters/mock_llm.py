@@ -19,8 +19,7 @@ class MockLLM(LLMPort):
     """A deterministic, offline reasoning stub.
 
     It does genuine evidence-first correlation, so that the full pipeline gets
-    exercised without any network or model dependency. The same can be swapped
-    for a Vertex Gemini adapter later.
+    exercised without any network or model dependency. Swap in Vertex Gemini later.
     """
 
     def diagnose(

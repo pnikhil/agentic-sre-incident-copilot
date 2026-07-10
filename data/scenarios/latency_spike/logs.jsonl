@@ -1,0 +1,3 @@
+{"ts":"2026-07-06T14:05:00Z","level":"WARN","service":"checkout-api","msg":"upstream latency elevated"}
+{"ts":"2026-07-06T14:07:00Z","level":"INFO","service":"checkout-api","msg":"request completed slowly"}
+{"ts":"2026-07-06T14:09:00Z","level":"WARN","service":"checkout-api","msg":"connection pool near capacity"}

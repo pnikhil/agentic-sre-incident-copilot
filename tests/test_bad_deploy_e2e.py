@@ -86,8 +86,7 @@ def test_ambiguous_telemetry_escalates():
 
 
 def test_gcp_profile_is_declarative_only():
-    """The GCP reference profile loads, but kindly note that its adapters are not
-    implemented yet, whereas the local-fixtures profile builds cleanly."""
+    """GCP profile loads, but its adapters are not implemented yet."""
     import pytest
 
     from aegis.cli import ARTIFACTS, DATA

@@ -1,6 +1,6 @@
 """A tiny checkout-api that can inject faults, meant for the live demo.
 
-FastAPI is an optional dependency. Kindly install it with:
+FastAPI is optional. Install it with:
     pip install -e ".[demo]"
 """
 
@@ -29,7 +29,7 @@ class _State:
 def create_app(scenarios_dir: Path):
     """Build the FastAPI app. Raises if the demo extra is not installed."""
     if not _HAS_FASTAPI:
-        raise RuntimeError('FastAPI is not installed. Kindly run: pip install -e ".[demo]"')
+        raise RuntimeError('FastAPI is not installed. Please run: pip install -e ".[demo]"')
 
     app = FastAPI(title="checkout-api (demo)")
     state = _State()

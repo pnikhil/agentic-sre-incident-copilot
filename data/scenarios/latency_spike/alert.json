@@ -1,0 +1,11 @@
+{
+  "id": "alert-checkout-latency-001",
+  "service": "checkout-api",
+  "condition": "latency_p95 > 800ms for 5m",
+  "severity": "high",
+  "fired_at": "2026-07-06T14:10:00Z",
+  "labels": {
+    "env": "production",
+    "team": "checkout-platform"
+  }
+}

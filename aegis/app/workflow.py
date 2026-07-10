@@ -49,8 +49,8 @@ class GraphState(TypedDict, total=False):
 
 class Workflow:
     """Orchestrates the incident state machine as a LangGraph multi-agent graph, and
-    saves a trace-replay bundle. Agents are reused as graph nodes, so reasoning stays
-    the same while orchestration is now an explicit graph
+    saves a trace-replay bundle. Agents are reused as graph nodes, so reasoning is
+    unchanged while orchestration is now an explicit graph
     with proper escalation edges."""
 
     def __init__(

@@ -4,8 +4,7 @@ The agents call diagnostic tools only through this gateway. It validates the
 inputs against the typed schemas, dispatches to the tool implementation, and
 records a ToolCallRecord, stamped with the incident_id, for every single call.
 
-Kindly note that the same tools are also served over the real MCP protocol by
-aegis.mcp.server, so an external MCP client can call them too.
+These tools are also served over MCP by aegis.mcp.server.
 """
 
 from __future__ import annotations

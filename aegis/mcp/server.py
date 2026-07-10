@@ -2,12 +2,11 @@
 
 Run it with:  python -m aegis.mcp.server
 
-Kindly note that this needs the mcp extra, so please install it first:
+Please install the mcp extra first:
     pip install -e ".[mcp]"
 
-This is the reusable module. Any MCP client (for example the MCP Inspector or a
-desktop assistant) can connect and call the same diagnostic tools that the Aegis
-agents use, which keeps the tool contract in one place.
+This reusable module lets any MCP client call the diagnostic tools used by
+Aegis agents.
 """
 
 from __future__ import annotations
@@ -18,7 +17,7 @@ try:
     from mcp.server.fastmcp import FastMCP
 except ImportError as exc:  # pragma: no cover - only hit when the extra is missing
     raise SystemExit(
-        'The MCP SDK is not installed. Kindly run: pip install -e ".[mcp]"'
+        'The MCP SDK is not installed. Please run: pip install -e ".[mcp]"'
     ) from exc
 
 from ..adapters.local_fixture_telemetry import LocalFixtureTelemetry

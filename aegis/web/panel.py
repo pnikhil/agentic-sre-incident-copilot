@@ -1,10 +1,7 @@
-"""A minimal web approval panel for human-approved remediation.
+"""Minimal web approval panel for human-approved remediation.
 
-Kindly note that this is the minimal panel asked for in Milestone 5B. It runs a
-scenario up to the approval stage, shows the proposed dry-run plan and the
-approval hashes, and lets a human approve or reject. On approval, the guarded
-rollback executes and the recovery is verified. The full incident console is a
-later, portfolio milestone.
+Runs a scenario to approval, shows the dry-run plan and hashes, then lets a
+human approve or reject. The full incident console comes later.
 
 Run it with:  python -m aegis.web.panel   (needs the demo extra)
 """
@@ -18,14 +15,13 @@ try:
     from fastapi.responses import HTMLResponse, RedirectResponse
 except ImportError as exc:  # pragma: no cover - only hit when the extra is missing
     raise SystemExit(
-        'The web panel needs the demo extra. Kindly run: pip install -e ".[demo]"'
+        'The web panel needs the demo extra. Please run: pip install -e ".[demo]"'
     ) from exc
 
 from ..cli import build_workflow, load_alert
 from ..domain.schemas import ApprovalStatus, Incident, Mode
 
-# incident_id -> (workflow, incident). Kindly note that this is an in-process
-# registry, which is enough for a local, single-process demo.
+# incident_id -> (workflow, incident). In-process registry is enough for local demo.
 _INCIDENTS: dict[str, tuple] = {}
 
 app = FastAPI(title="Aegis Approval Panel")
@@ -93,7 +89,7 @@ def index() -> str:
     </label>
     <button type="submit">Run to approval</button>
   </form>
-  {cards or "<p>No incidents yet. Kindly run one above.</p>"}
+    {cards or "<p>No incidents yet. Run one above.</p>"}
 </body></html>"""
 
 

@@ -2,7 +2,7 @@
 
 Aegis is an evidence-driven, policy-gated SRE incident copilot. It takes a production alert, gathers the relevant telemetry, reasons about the likely root cause, checks the approved runbooks, and proposes a safe, reversible remediation that a human can approve. Kindly note that Aegis never makes any change on its own. The diagnosis is automated, but the remediation is always human-approved.
 
-The larger vision is a multi-agent system running on Vertex AI Gemini, with MCP tools, grounded runbook RAG, evaluation pipelines, incident_id tracing, and a Terraform-based GCP deployment. As of now, Milestones 1 to 5 are complete and fully local.
+The larger vision is a multi-agent system running on Vertex AI Gemini, with MCP tools, grounded runbook RAG, evaluation pipelines, incident_id tracing, and a Terraform-based GCP deployment. As of now, Milestones 1 to 6 are complete and fully local.
 
 ## Platform-agnostic core, GCP as the reference deployment
 
@@ -146,6 +146,24 @@ python -m pip install -e ".[demo]"
 python -m aegis.web.panel   # then open http://127.0.0.1:8000
 ```
 
+## Evaluation harness (Milestone 6)
+
+Every scenario carries a ground_truth.json, so the grading is deterministic and
+no LLM is involved. The grader runs each golden scenario through the workflow and
+scores the diagnosis, the evidence found, the action chosen, whether an unsafe
+action was correctly withheld, the groundedness, the tool-call count, and the
+latency. Kindly note that the golden set has one positive case (bad_deploy) and
+two negative cases (ambiguous_telemetry and latency_spike) where the agent must
+not act.
+
+```bash
+python -m aegis.cli eval
+```
+
+The command prints a per-scenario table and the aggregate metrics (diagnosis
+accuracy, groundedness rate, safe-refusal rate, and latency p50/p95), and it
+exits non-zero if any scenario fails, so it can gate CI.
+
 ## Sample end-to-end result row
 
 After a successful run, you will see a row like the one given below:
@@ -177,6 +195,7 @@ The code follows a ports-and-adapters layout, so that we can start local and swa
 - aegis/ports, the interfaces: llm, telemetry, runbook_store, approval_store, remediation_executor, audit_log
 - aegis/adapters, the local and mock implementations, including a TF-IDF vector runbook store (Gemini and Cloud adapters will come in later milestones)
 - aegis/mcp, the diagnostic tools with typed schemas, the in-process tool gateway, and a real FastMCP server
+- aegis/eval, the deterministic grader and the evaluation harness over the golden scenarios
 - aegis/app, the agents (triage, diagnosis, planning, critic, approval) wired into a LangGraph workflow that routes between them and escalates when the agent must not act
 - data/, the deterministic scenarios and the runbook corpus
 - artifacts/, the per-incident replay bundles (gitignored)
@@ -191,4 +210,4 @@ These three rules are non-negotiable:
 
 ## Current status
 
-Milestones 1 to 5 are complete and green. The bad_deploy flow runs end-to-end through a LangGraph multi-agent graph (triage, diagnosis, runbook matching, planning, a bounded critic, human-approved remediation, and recovery verification), the agents call the diagnostic tools only through the MCP gateway, the ambiguous case escalates correctly, and all the tests are passing. The next milestones will add the evaluation pipelines and the Terraform-based GCP deployment. For any queries, please do reach out.
+Milestones 1 to 6 are complete and green. The bad_deploy flow runs end-to-end through a LangGraph multi-agent graph (triage, diagnosis, runbook matching, planning, a bounded critic, human-approved remediation, and recovery verification), the agents call the diagnostic tools only through the MCP gateway, the negative cases escalate correctly, a deterministic evaluation harness grades the golden scenarios, and all the tests are passing. The next milestone will add the Terraform-based GCP deployment. For any queries, please do reach out.

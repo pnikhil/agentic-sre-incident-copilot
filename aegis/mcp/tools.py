@@ -1,8 +1,7 @@
 """The diagnostic tool implementations.
 
-Kindly note that the same functions back both the in-process MCP gateway and
-the FastMCP server, so the tool behaviour and schemas stay identical in both
-paths. The tools read only, and never mutate anything.
+These functions back the in-process gateway and FastMCP server. Tools are
+read-only and never mutate anything.
 """
 
 from __future__ import annotations

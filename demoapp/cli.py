@@ -15,7 +15,7 @@ DATA = ROOT / "data"
 def cmd_emit(args: argparse.Namespace) -> None:
     out = write_scenario(Fault(args.fault), scenarios_dir=DATA / "scenarios", name=args.scenario)
     print(f"Wrote {args.fault} telemetry to {out}")
-    print(f"Now kindly run: python -m aegis.cli run --scenario {args.scenario}")
+    print(f"Now run: python -m aegis.cli run --scenario {args.scenario}")
 
 
 def cmd_serve(args: argparse.Namespace) -> None:
@@ -24,7 +24,7 @@ def cmd_serve(args: argparse.Namespace) -> None:
     try:
         import uvicorn
     except ImportError as exc:  # pragma: no cover
-        raise SystemExit('uvicorn is not installed. Kindly run: pip install -e ".[demo]"') from exc
+        raise SystemExit('uvicorn is not installed. Please run: pip install -e ".[demo]"') from exc
 
     app = create_app(DATA / "scenarios")
     uvicorn.run(app, host=args.host, port=args.port)

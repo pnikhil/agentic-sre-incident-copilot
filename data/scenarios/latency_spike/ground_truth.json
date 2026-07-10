@@ -1,0 +1,6 @@
+{
+  "root_cause": "inconclusive",
+  "expected_action": "escalate",
+  "expected_runbook": null,
+  "required_evidence": []
+}

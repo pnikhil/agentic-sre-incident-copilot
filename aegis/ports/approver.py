@@ -9,8 +9,7 @@ class ApprovalDecisionPort(ABC):
     """The human-in-the-loop decision. In the approved_writes mode, the workflow
     asks this port whether to go ahead with the proposed rollback.
 
-    Kindly note that a decision of PENDING means no human has decided yet, so the
-    workflow stops and waits, rather than acting.
+    PENDING means no human decision yet, so the workflow waits.
     """
 
     @abstractmethod

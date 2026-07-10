@@ -1,8 +1,6 @@
 """Typed input and result schemas for the diagnostic tools.
 
-These schemas are the tool contract. Kindly note that the same contract is used
-by the in-process gateway and by the FastMCP server, so a tool looks identical
-whether an Aegis agent or an external MCP client calls it.
+These schemas are the shared tool contract for the gateway and FastMCP server.
 """
 
 from __future__ import annotations

@@ -1,0 +1,29 @@
+{
+  "service": "checkout-api",
+  "series": [
+    {
+      "name": "latency_p95",
+      "unit": "ms",
+      "window": "1m",
+      "baseline": 220,
+      "points": [
+        { "ts": "2026-07-06T13:55:00Z", "value": 240 },
+        { "ts": "2026-07-06T14:00:00Z", "value": 260 },
+        { "ts": "2026-07-06T14:05:00Z", "value": 910 },
+        { "ts": "2026-07-06T14:10:00Z", "value": 1180 }
+      ]
+    },
+    {
+      "name": "http_5xx_rate",
+      "unit": "ratio",
+      "window": "1m",
+      "baseline": 0.003,
+      "points": [
+        { "ts": "2026-07-06T13:55:00Z", "value": 0.002 },
+        { "ts": "2026-07-06T14:00:00Z", "value": 0.003 },
+        { "ts": "2026-07-06T14:05:00Z", "value": 0.004 },
+        { "ts": "2026-07-06T14:10:00Z", "value": 0.005 }
+      ]
+    }
+  ]
+}

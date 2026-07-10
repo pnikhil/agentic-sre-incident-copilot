@@ -40,9 +40,12 @@ class ApprovalGuard:
         proposal: RemediationProposal,
         approval: ApprovalRequest,
         policy: PolicyCheckResult | None,
+        incident_id: str,
     ) -> tuple[bool, str]:
         if policy is None or policy.verdict != Verdict.PASS:
             return False, "policy did not pass"
+        if approval.incident_id != incident_id:
+            return False, "the approval is bound to a different incident"
         if approval.status != ApprovalStatus.APPROVED:
             return False, f"approval is not approved (status={approval.status.value})"
         if _now() >= approval.expires_at:
@@ -69,7 +72,10 @@ class RemediationRunner:
         approval: ApprovalRequest,
         policy: PolicyCheckResult | None,
     ) -> tuple[RemediationExecution | None, str]:
-        ok, reason = self.guard.enforce(proposal=proposal, approval=approval, policy=policy)
+        ok, reason = self.guard.enforce(
+            proposal=proposal, approval=approval, policy=policy,
+            incident_id=incident.incident_id,
+        )
         if not ok:
             return None, reason
         execution = self.executor.execute(

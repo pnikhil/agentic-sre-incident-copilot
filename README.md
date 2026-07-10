@@ -132,7 +132,7 @@ Aegis never writes on its own. It runs in one of three modes:
 - dry_run (the default): a plan and an approval request are produced, but nothing is executed.
 - approved_writes: after a human approves, the guarded rollback executes and the recovery is verified.
 
-The guarded write is refused unless the approval is bound to the exact payload and dry-run plan, has not expired, has not been used already, and the policy has passed. After the rollback, a recovery check confirms that the revision we rolled back to was previously healthy, otherwise Aegis escalates.
+The guarded write is refused unless the approval is for this very incident, bound to the exact payload and dry-run plan, has not expired, has not been used already, and the policy has passed. After the rollback, a recovery check confirms that the revision we rolled back to was previously healthy, otherwise Aegis escalates.
 
 ```bash
 # non-interactive demo (auto-approves the write)

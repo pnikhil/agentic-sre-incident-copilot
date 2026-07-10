@@ -203,13 +203,39 @@ def test_guard_rejects_tampered_payload():
     approval.status = ApprovalStatus.APPROVED
     guard = ApprovalGuard(FakeExecutor())
 
-    ok, _reason = guard.enforce(proposal=inc.proposal, approval=approval, policy=inc.policy_check)
+    ok, _reason = guard.enforce(
+        proposal=inc.proposal, approval=approval, policy=inc.policy_check,
+        incident_id=inc.incident_id,
+    )
     assert ok is True
 
     inc.proposal.payload["rollback_target"]["to_revision"] = "tampered-revision"
-    ok, reason = guard.enforce(proposal=inc.proposal, approval=approval, policy=inc.policy_check)
+    ok, reason = guard.enforce(
+        proposal=inc.proposal, approval=approval, policy=inc.policy_check,
+        incident_id=inc.incident_id,
+    )
     assert ok is False
     assert "payload" in reason
+
+
+def test_approval_not_reusable_across_incidents():
+    """An approved, unused approval from one incident must not authorise another incident."""
+    from aegis.adapters.fake_executor import FakeExecutor
+    from aegis.app.remediation import ApprovalGuard
+    from aegis.domain.schemas import ApprovalStatus
+
+    wf = build_workflow(Mode.DRY_RUN)
+    inc1 = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+    inc2 = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+    inc1.approval.status = ApprovalStatus.APPROVED
+
+    guard = ApprovalGuard(FakeExecutor())
+    ok, reason = guard.enforce(
+        proposal=inc2.proposal, approval=inc1.approval, policy=inc2.policy_check,
+        incident_id=inc2.incident_id,
+    )
+    assert ok is False
+    assert "different incident" in reason
 
 
 def test_resume_execution_approves_and_recovers():

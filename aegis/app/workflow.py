@@ -49,8 +49,8 @@ class GraphState(TypedDict, total=False):
 
 class Workflow:
     """Orchestrates the incident state machine as a LangGraph multi-agent graph, and
-    saves a trace-replay bundle. Kindly note that the agents are reused as graph nodes,
-    so the reasoning stays the same, only the orchestration is now an explicit graph
+    saves a trace-replay bundle. Agents are reused as graph nodes, so reasoning stays
+    the same while orchestration is now an explicit graph
     with proper escalation edges."""
 
     def __init__(
@@ -77,9 +77,7 @@ class Workflow:
         self.critic = CriticAgent(llm)
         self.approvals = ApprovalService(executor, approvals_store)
         self.runner = RemediationRunner(executor, gateway)
-        # The human-in-the-loop decision. Kindly note that when none is given, the
-        # default is to leave the request pending, so nothing is ever executed
-        # without an explicit human approval.
+        # Human approval port. If absent, leave approval pending and execute nothing.
         self.decider = approver
         self.audit = audit
         self.artifacts_dir = Path(artifacts_dir)
@@ -92,8 +90,7 @@ class Workflow:
         self._graph = self._build_graph()
 
     def _build_graph(self):
-        """Builds the LangGraph graph. Kindly note the escalation edges that route
-        straight to the end whenever the agent must not act."""
+        """Build the LangGraph graph with escalation edges for no-action paths."""
         graph = StateGraph(GraphState)
         graph.add_node("retrieve", self._node_retrieve)
         graph.add_node("triage", self._node_triage)
@@ -385,9 +382,7 @@ class Workflow:
                 "safety_gate": "Blocked"}
 
     def resume_execution(self, incident: Incident, *, approved: bool) -> Incident:
-        """Resumes a dry-run incident after a human decision. Kindly note that the
-        web approval panel uses this to execute an approved rollback and then verify
-        the recovery, outside the graph."""
+        """Resume a dry-run incident after human approval or rejection."""
         if incident.proposal is None or incident.approval is None:
             return incident
         if not approved:

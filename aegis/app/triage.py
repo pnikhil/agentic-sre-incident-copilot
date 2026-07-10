@@ -33,9 +33,7 @@ class TriageAgent:
         evidence: list[Evidence] = []
         tool_calls: list[ToolCallRecord] = []
 
-        # The runbook's evidence_recipe decides which tools to run and in what
-        # order. Kindly note that when no recipe is given, we fall back to the
-        # default set of collectors.
+        # Runbook evidence_recipe decides the tools. No recipe means use defaults.
         tools = [str(step.get("tool")) for step in recipe] if recipe else list(self._DEFAULT_TOOLS)
         done: set[str] = set()
         args = {"scenario": scenario, "service": service}

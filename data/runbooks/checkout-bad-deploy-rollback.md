@@ -26,7 +26,7 @@ risk_level: medium
 requires_approval: true
 ---
 
-# Checkout API — Bad Deploy Rollback
+# Checkout API - Bad Deploy Rollback
 
 ## Symptoms
 Elevated HTTP 5xx error rate on `checkout-api` shortly after a new revision is deployed.

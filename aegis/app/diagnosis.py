@@ -12,8 +12,7 @@ from ..ports.llm import LLMPort
 
 class DiagnosisAgent:
     """Evaluates whether a runbook applies to the collected evidence, and then
-    diagnoses the root cause. Kindly note that the runbook retrieval itself is
-    done by the workflow through the MCP gateway."""
+    diagnoses the root cause. The workflow retrieves runbooks through the MCP gateway."""
 
     def __init__(self, llm: LLMPort):
         self.llm = llm

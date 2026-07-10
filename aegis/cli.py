@@ -20,9 +20,8 @@ def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixture
                    approver=None) -> Workflow:
     """The composition root. It loads a platform profile and wires the matching adapters.
 
-    Kindly note that only the local-fixtures profile is implemented as of now. The
-    gcp-cloud-run profile is declarative, and its adapters will come in the later
-    milestones (the GCP reference deployment).
+    For now, only local-fixtures is wired. gcp-cloud-run stays declarative until
+    the GCP reference deployment lands.
     """
     profile = load_profile(profile_name)
     adapters = build_adapters(profile, data_dir=DATA, artifacts_dir=ARTIFACTS)
@@ -123,6 +122,17 @@ def cmd_run(args: argparse.Namespace) -> None:
     _print_report(incident)
 
 
+def cmd_eval(args: argparse.Namespace) -> None:
+    # Imported lazily so that the eval harness can import build_workflow from here
+    # without a circular import.
+    from .eval.harness import evaluate, format_report
+
+    report = evaluate(args.scenario or None)
+    print(format_report(report))
+    if report.passed < report.total:
+        raise SystemExit(1)
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         prog="aegis",
@@ -144,12 +154,18 @@ def main() -> None:
     )
     run_p.set_defaults(func=cmd_run)
 
+    eval_p = sub.add_parser("eval", help="Run the deterministic evaluation over the golden scenarios")
+    eval_p.add_argument(
+        "--scenario", nargs="*",
+        help="scenarios to evaluate (default: the committed golden set)",
+    )
+    eval_p.set_defaults(func=cmd_eval)
+
     args = parser.parse_args()
     try:
         args.func(args)
     except (NotImplementedError, ValueError, FileNotFoundError) as exc:
-        # Kindly note that these are the expected profile and capability errors,
-        # so we show a clean message instead of a traceback.
+        # Expected profile/capability errors get a clean CLI message.
         print(f"aegis: {exc}")
         raise SystemExit(1)
 

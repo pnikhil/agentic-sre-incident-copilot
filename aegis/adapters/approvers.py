@@ -5,8 +5,7 @@ from ..ports.approver import ApprovalDecisionPort
 
 
 class AutoApprover(ApprovalDecisionPort):
-    """Approves or rejects automatically. Kindly note that this is meant for the
-    tests and for a non-interactive demo, and never for a real production write."""
+    """Auto-approves for tests and demos. Not for production writes."""
 
     def __init__(self, approve: bool = True):
         self.approve = approve
@@ -16,8 +15,7 @@ class AutoApprover(ApprovalDecisionPort):
 
 
 class DenyingApprover(ApprovalDecisionPort):
-    """Leaves every request pending. This is the safe default, so that nothing is
-    executed unless a human explicitly approves it."""
+    """Keeps requests pending. No approval, no action."""
 
     def decide(self, *, approval, proposal, incident) -> ApprovalStatus:
         return ApprovalStatus.PENDING

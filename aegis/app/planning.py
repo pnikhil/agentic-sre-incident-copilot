@@ -12,8 +12,7 @@ from ..domain.schemas import (
     ServiceRef,
 )
 
-# A quote we expect to find word-for-word in the rollback runbook. Kindly note
-# that groundedness is always verified against the source, and never trusted.
+# Expected rollback quote. Always verify groundedness against the source.
 _ROLLBACK_QUOTE = (
     "If error rate exceeds 5% within 10 minutes of a deployment, rollback to the "
     "previous stable revision."
@@ -72,7 +71,7 @@ class RemediationPlanner:
             rollback_target=rollback_target,
             rollback_plan=(
                 f"Re-deploy {previous_stable} (the previous healthy revision) for "
-                f"{alert.service}. The same is fully reversible."
+                f"{alert.service}. This is fully reversible."
             ),
             cited_evidence_ids=diagnosis.cited_evidence_ids,
             runbook_evidence=RunbookEvidence(

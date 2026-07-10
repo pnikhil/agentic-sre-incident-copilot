@@ -3,8 +3,7 @@
 The guard enforces that a write is authorised, that is, the approval is bound to
 the exact payload and dry-run plan, has not expired, has not been used already,
 and the policy has passed. The runner then performs the guarded write and
-verifies the recovery. Kindly note that the same runner is reused by the
-LangGraph workflow and by the web approval panel.
+verifies the recovery. Same runner is used by the graph and web panel.
 """
 
 from __future__ import annotations

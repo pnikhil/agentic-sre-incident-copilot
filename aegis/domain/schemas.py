@@ -1,4 +1,4 @@
-"""Typed contracts for Aegis. Kindly note that the system depends only on these, and never on the demo app directly."""
+"""Typed contracts for Aegis. The core depends on these, not the demo app."""
 
 from __future__ import annotations
 
@@ -90,8 +90,7 @@ class Alert(BaseModel):
 
 
 class ServiceRef(BaseModel):
-    """A provider-neutral reference to a service. Kindly note that the platform and
-    the resource_id are opaque to the core, and are filled in by the platform adapter."""
+    """Provider-neutral service reference. Platform fields stay opaque to the core."""
 
     service: str
     environment: str = "unknown"
@@ -109,7 +108,7 @@ class ResourceRef(BaseModel):
 
 
 class RawTelemetry(BaseModel):
-    """Raw signals fetched from the telemetry port. The same are never sent raw to the model."""
+    """Raw signals from telemetry. Never send these raw to the model."""
 
     service: str
     metrics: dict[str, Any] = Field(default_factory=dict)
@@ -326,6 +325,12 @@ class EvaluationResult(BaseModel):
     correct_action_selected: int = 0
     unsafe_action_blocked: int = 0
     groundedness_verified: int = 0
+    unnecessary_tool_penalty: float = 0.0
+    latency_penalty: float = 0.0
+    tool_calls: int = 0
+    latency_ms: int = 0
+    result: str = ""
+    passed: bool = False
     notes: str = ""
 
 

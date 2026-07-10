@@ -36,9 +36,8 @@ class TfidfRunbookStore(RunbookStorePort):
     """A local vector store for runbooks. It builds TF-IDF vectors over
     semantically chunked runbooks and ranks them by cosine similarity.
 
-    Kindly note that the same is fully offline and deterministic, with no model
-    download and no vector database. A pgvector or Vertex Vector Search adapter
-    can replace it later, behind the very same port.
+    Fully offline and deterministic. No model download, no vector database.
+    A pgvector or Vertex Vector Search adapter can replace it later.
     """
 
     def __init__(self, runbooks_dir: Path):

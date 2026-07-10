@@ -26,8 +26,7 @@ class FakeExecutor(RemediationExecutorPort):
     def execute(self, *, action: str, target: str, payload: dict[str, Any]) -> RemediationExecution:
         rollback = payload.get("rollback_target", {})
         to_revision = rollback.get("to_revision")
-        # Kindly note that nothing is really mutated. We only record what a real
-        # executor would have done, so the demo stays safe and reversible.
+        # Local demo only: record the intended action, don't mutate anything.
         return RemediationExecution(
             action=action,
             target=target,

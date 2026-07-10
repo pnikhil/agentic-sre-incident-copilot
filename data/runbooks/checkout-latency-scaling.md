@@ -20,7 +20,7 @@ risk_level: low
 requires_approval: true
 ---
 
-# Checkout API — Latency Scaling
+# Checkout API - Latency Scaling
 
 Elevated p95 latency without a recent deploy usually indicates resource saturation under
 load. Scale the service out to add capacity and relieve queueing.

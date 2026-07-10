@@ -2,7 +2,7 @@
 
 Aegis is an evidence-driven, policy-gated SRE incident copilot. It takes a production alert, gathers the relevant telemetry, reasons about the likely root cause, checks the approved runbooks, and proposes a safe, reversible remediation that a human can approve. Kindly note that Aegis never makes any change on its own. The diagnosis is automated, but the remediation is always human-approved.
 
-The larger vision is a multi-agent system running on Vertex AI Gemini, with MCP tools, grounded runbook RAG, evaluation pipelines, incident_id tracing, and a Terraform-based GCP deployment. As of now, Milestones 1 to 4 are complete and fully local.
+The larger vision is a multi-agent system running on Vertex AI Gemini, with MCP tools, grounded runbook RAG, evaluation pipelines, incident_id tracing, and a Terraform-based GCP deployment. As of now, Milestones 1 to 5 are complete and fully local.
 
 ## Platform-agnostic core, GCP as the reference deployment
 
@@ -124,6 +124,28 @@ python -m aegis.mcp.server
 
 Kindly note that the in-process gateway is what the workflow and the tests use, so no extra install is needed for the normal local run.
 
+## Human-approved remediation (Milestone 5)
+
+Aegis never writes on its own. It runs in one of three modes:
+
+- read_only: diagnosis only, no remediation is proposed for execution.
+- dry_run (the default): a plan and an approval request are produced, but nothing is executed.
+- approved_writes: after a human approves, the guarded rollback executes and the recovery is verified.
+
+The guarded write is refused unless the approval is bound to the exact payload and dry-run plan, has not expired, has not been used already, and the policy has passed. After the rollback, a recovery check confirms that the revision we rolled back to was previously healthy, otherwise Aegis escalates.
+
+```bash
+# non-interactive demo (auto-approves the write)
+python -m aegis.cli run --scenario bad_deploy --mode approved_writes --yes
+
+# interactive: Aegis shows the plan and asks for a yes or no
+python -m aegis.cli run --scenario bad_deploy --mode approved_writes
+
+# minimal web approval panel (needs the demo extra)
+python -m pip install -e ".[demo]"
+python -m aegis.web.panel   # then open http://127.0.0.1:8000
+```
+
 ## Sample end-to-end result row
 
 After a successful run, you will see a row like the one given below:
@@ -169,4 +191,4 @@ These three rules are non-negotiable:
 
 ## Current status
 
-Milestones 1 to 4 are complete and green. The bad_deploy flow runs end-to-end through a LangGraph multi-agent graph (triage, diagnosis, runbook matching, planning, a bounded critic, and approval), the agents call the diagnostic tools only through the MCP gateway, the ambiguous case escalates correctly, and all the tests are passing. The next milestones will add the evaluation pipelines and the Terraform-based GCP deployment. For any queries, please do reach out.
+Milestones 1 to 5 are complete and green. The bad_deploy flow runs end-to-end through a LangGraph multi-agent graph (triage, diagnosis, runbook matching, planning, a bounded critic, human-approved remediation, and recovery verification), the agents call the diagnostic tools only through the MCP gateway, the ambiguous case escalates correctly, and all the tests are passing. The next milestones will add the evaluation pipelines and the Terraform-based GCP deployment. For any queries, please do reach out.

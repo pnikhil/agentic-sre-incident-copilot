@@ -11,13 +11,14 @@ dependencies = [
 
 [project.optional-dependencies]
 dev = ["pytest>=8.0"]
-demo = ["fastapi>=0.110", "uvicorn>=0.29"]
+demo = ["fastapi>=0.110", "uvicorn>=0.29", "python-multipart>=0.0.9"]
 mcp = ["mcp>=1.2"]
 
 [project.scripts]
 aegis = "aegis.cli:main"
 aegis-demo = "demoapp.cli:main"
 aegis-mcp = "aegis.mcp.server:main"
+aegis-panel = "aegis.web.panel:main"
 
 [build-system]
 requires = ["setuptools>=68"]

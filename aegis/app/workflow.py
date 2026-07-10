@@ -10,6 +10,7 @@ from langgraph.graph import END, StateGraph
 from ..domain.schemas import (
     Actor,
     Alert,
+    ApprovalStatus,
     DiagnosisStatus,
     E2EResult,
     Incident,
@@ -21,6 +22,7 @@ from ..domain.schemas import (
 )
 from ..mcp.gateway import MCPToolGateway
 from ..ports.approval_store import ApprovalStorePort
+from ..ports.approver import ApprovalDecisionPort
 from ..ports.audit_log import AuditLogPort
 from ..ports.llm import LLMPort
 from ..ports.remediation_executor import RemediationExecutorPort
@@ -28,6 +30,7 @@ from .approval import ApprovalService
 from .critic import CriticAgent
 from .diagnosis import DiagnosisAgent
 from .planning import RemediationPlanner
+from .remediation import RemediationRunner
 from .triage import TriageAgent
 
 
@@ -60,17 +63,24 @@ class Workflow:
         audit: AuditLogPort,
         artifacts_dir: Path,
         mode: Mode = Mode.DRY_RUN,
+        approver: ApprovalDecisionPort | None = None,
         max_tool_calls: int = 10,
         max_reasoning_iterations: int = 6,
         per_tool_timeout_s: int = 10,
         max_revision_rounds: int = 1,
     ):
         self.gateway = gateway
+        self.executor = executor
         self.triage = TriageAgent()
         self.diagnoser = DiagnosisAgent(llm)
         self.planner = RemediationPlanner()
         self.critic = CriticAgent(llm)
-        self.approver = ApprovalService(executor, approvals_store)
+        self.approvals = ApprovalService(executor, approvals_store)
+        self.runner = RemediationRunner(executor, gateway)
+        # The human-in-the-loop decision. Kindly note that when none is given, the
+        # default is to leave the request pending, so nothing is ever executed
+        # without an explicit human approval.
+        self.decider = approver
         self.audit = audit
         self.artifacts_dir = Path(artifacts_dir)
         self.mode = mode
@@ -92,6 +102,9 @@ class Workflow:
         graph.add_node("plan", self._node_plan)
         graph.add_node("critic", self._node_critic)
         graph.add_node("approve", self._node_approve)
+        graph.add_node("decide", self._node_decide)
+        graph.add_node("execute", self._node_execute)
+        graph.add_node("verify", self._node_verify)
         graph.set_entry_point("retrieve")
         graph.add_conditional_edges("retrieve", self._route_after_retrieve,
                                     {"escalate": END, "triage": "triage"})
@@ -100,11 +113,17 @@ class Workflow:
         graph.add_conditional_edges("diagnose", self._route_after_diagnose,
                                     {"escalate": END, "runbook": "runbook"})
         graph.add_conditional_edges("runbook", self._route_after_runbook,
-                                    {"escalate": END, "plan": "plan"})
+                                    {"escalate": END, "stop": END, "plan": "plan"})
         graph.add_edge("plan", "critic")
         graph.add_conditional_edges("critic", self._route_after_critic,
                                     {"approve": "approve", "replan": "plan", "blocked": END})
-        graph.add_edge("approve", END)
+        graph.add_conditional_edges("approve", self._route_after_approve,
+                                    {"decide": "decide", "stop": END})
+        graph.add_conditional_edges("decide", self._route_after_decide,
+                                    {"execute": "execute", "stop": END})
+        graph.add_conditional_edges("execute", self._route_after_execute,
+                                    {"verify": "verify", "stop": END})
+        graph.add_edge("verify", END)
         return graph.compile()
 
     def _emit(self, incident, actor, type_, summary="", evidence_ids=None, state=None):
@@ -231,12 +250,19 @@ class Workflow:
                        f"runbook does not apply: {match.reason}", state=IncidentState.ESCALATED)
             return {"incident": incident, "result": "Escalated (runbook N/A)",
                     "safety_gate": "Blocked"}
+        if self.mode == Mode.READ_ONLY:
+            self._emit(incident, Actor.AGENT, "read_only.withheld",
+                       "read-only mode: diagnosis only, remediation withheld")
+            return {"incident": incident, "result": "Read-only: diagnosis only",
+                    "safety_gate": "N/A"}
         return {"incident": incident}
 
     def _route_after_runbook(self, state: GraphState) -> str:
         incident = state["incident"]
         if incident.runbook_match and not incident.runbook_match.applies:
             return "escalate"
+        if self.mode == Mode.READ_ONLY:
+            return "stop"
         return "plan"
 
     def _node_plan(self, state: GraphState) -> dict:
@@ -286,7 +312,7 @@ class Workflow:
 
     def _node_approve(self, state: GraphState) -> dict:
         incident = state["incident"]
-        approval, _dry = self.approver.request(
+        approval, _dry = self.approvals.request(
             incident_id=incident.incident_id, proposal=incident.proposal, mode=self.mode
         )
         incident.approval = approval
@@ -296,6 +322,117 @@ class Workflow:
                    state=IncidentState.APPROVAL_REQUESTED)
         return {"incident": incident, "result": "Approval requested (dry-run)",
                 "safety_gate": "Pass"}
+
+    def _route_after_approve(self, state: GraphState) -> str:
+        return "decide" if self.mode == Mode.APPROVED_WRITES else "stop"
+
+    def _node_decide(self, state: GraphState) -> dict:
+        incident = state["incident"]
+        decision = (
+            self.decider.decide(
+                approval=incident.approval, proposal=incident.proposal, incident=incident
+            )
+            if self.decider is not None
+            else ApprovalStatus.PENDING
+        )
+        incident.approval.status = decision
+        if decision == ApprovalStatus.APPROVED:
+            self._emit(incident, Actor.USER, "approval.approved",
+                       "human approved the rollback", state=IncidentState.APPROVED)
+            return {"incident": incident}
+        if decision == ApprovalStatus.REJECTED:
+            self._emit(incident, Actor.USER, "approval.rejected",
+                       "human rejected the rollback", state=IncidentState.REJECTED)
+            return {"incident": incident, "result": "Rejected by human", "safety_gate": "Pass"}
+        self._emit(incident, Actor.SYSTEM, "approval.pending", "awaiting a human decision")
+        return {"incident": incident, "result": "Awaiting human approval",
+                "safety_gate": "Pass"}
+
+    def _route_after_decide(self, state: GraphState) -> str:
+        return ("execute" if state["incident"].approval.status == ApprovalStatus.APPROVED
+                else "stop")
+
+    def _node_execute(self, state: GraphState) -> dict:
+        incident = state["incident"]
+        execution, note = self.runner.execute(
+            incident=incident, proposal=incident.proposal,
+            approval=incident.approval, policy=incident.policy_check,
+        )
+        if execution is None:
+            self._emit(incident, Actor.AGENT, "safety_check.blocked",
+                       f"guarded write refused: {note}", state=IncidentState.SAFETY_CHECK_BLOCKED)
+            return {"incident": incident, "result": f"Blocked (approval invalid: {note})",
+                    "safety_gate": "Blocked"}
+        incident.execution = execution
+        self._emit(incident, Actor.AGENT, "remediation.executed", execution.note,
+                   state=IncidentState.REMEDIATION_EXECUTED)
+        return {"incident": incident}
+
+    def _route_after_execute(self, state: GraphState) -> str:
+        return "verify" if state["incident"].execution is not None else "stop"
+
+    def _node_verify(self, state: GraphState) -> dict:
+        incident = state["incident"]
+        recovery = self.runner.verify(incident=incident, proposal=incident.proposal)
+        incident.recovery = recovery
+        if recovery.verified:
+            self._emit(incident, Actor.AGENT, "recovery.verified", recovery.note,
+                       state=IncidentState.RECOVERY_VERIFIED)
+            return {"incident": incident, "result": "Recovered", "safety_gate": "Pass"}
+        self._emit(incident, Actor.AGENT, "escalated",
+                   f"recovery not verified: {recovery.note}", state=IncidentState.ESCALATED)
+        return {"incident": incident, "result": "Escalated (recovery failed)",
+                "safety_gate": "Blocked"}
+
+    def resume_execution(self, incident: Incident, *, approved: bool) -> Incident:
+        """Resumes a dry-run incident after a human decision. Kindly note that the
+        web approval panel uses this to execute an approved rollback and then verify
+        the recovery, outside the graph."""
+        if incident.proposal is None or incident.approval is None:
+            return incident
+        if not approved:
+            incident.approval.status = ApprovalStatus.REJECTED
+            self._emit(incident, Actor.USER, "approval.rejected",
+                       "human rejected the rollback", state=IncidentState.REJECTED)
+            self._set_result(incident, "Rejected by human", "Pass")
+            self._write_artifacts(incident)
+            return incident
+
+        incident.approval.status = ApprovalStatus.APPROVED
+        self._emit(incident, Actor.USER, "approval.approved",
+                   "human approved the rollback", state=IncidentState.APPROVED)
+        execution, note = self.runner.execute(
+            incident=incident, proposal=incident.proposal,
+            approval=incident.approval, policy=incident.policy_check,
+        )
+        if execution is None:
+            self._emit(incident, Actor.AGENT, "safety_check.blocked",
+                       f"guarded write refused: {note}", state=IncidentState.SAFETY_CHECK_BLOCKED)
+            self._set_result(incident, f"Blocked (approval invalid: {note})", "Blocked")
+            self._write_artifacts(incident)
+            return incident
+
+        incident.execution = execution
+        self._emit(incident, Actor.AGENT, "remediation.executed", execution.note,
+                   state=IncidentState.REMEDIATION_EXECUTED)
+        recovery = self.runner.verify(incident=incident, proposal=incident.proposal)
+        incident.recovery = recovery
+        if recovery.verified:
+            self._emit(incident, Actor.AGENT, "recovery.verified", recovery.note,
+                       state=IncidentState.RECOVERY_VERIFIED)
+            self._set_result(incident, "Recovered", "Pass")
+        else:
+            self._emit(incident, Actor.AGENT, "escalated",
+                       f"recovery not verified: {recovery.note}", state=IncidentState.ESCALATED)
+            self._set_result(incident, "Escalated (recovery failed)", "Blocked")
+        self._write_artifacts(incident)
+        return incident
+
+    def _set_result(self, incident: Incident, result: str, safety_gate: str) -> None:
+        if incident.e2e_result:
+            incident.e2e_result.result = result
+            incident.e2e_result.safety_gate = safety_gate
+            incident.e2e_result.action = incident.proposal.action if incident.proposal else None
 
     def _finalize(self, incident, started, *, safety_gate, result) -> Incident:
         elapsed = (_now() - started).total_seconds()

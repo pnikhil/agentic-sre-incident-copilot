@@ -23,6 +23,11 @@ class IncidentState(str, Enum):
     SAFETY_CHECK_PASSED = "SAFETY_CHECK_PASSED"
     SAFETY_CHECK_BLOCKED = "SAFETY_CHECK_BLOCKED"
     APPROVAL_REQUESTED = "APPROVAL_REQUESTED"
+    APPROVED = "APPROVED"
+    REJECTED = "REJECTED"
+    APPROVAL_EXPIRED = "APPROVAL_EXPIRED"
+    REMEDIATION_EXECUTED = "REMEDIATION_EXECUTED"
+    RECOVERY_VERIFIED = "RECOVERY_VERIFIED"
     ESCALATED = "ESCALATED"
     INCIDENT_REPORT_GENERATED = "INCIDENT_REPORT_GENERATED"
 
@@ -264,6 +269,16 @@ class ApprovalRequest(BaseModel):
     proposed_diff: str = ""
 
 
+class RemediationExecution(BaseModel):
+    action: str
+    target: str
+    params: dict[str, Any] = Field(default_factory=dict)
+    ok: bool = True
+    executor: str = "fake"
+    note: str = ""
+    executed_at: datetime
+
+
 class RecoveryVerification(BaseModel):
     verified: bool
     note: str = ""
@@ -329,6 +344,8 @@ class Incident(BaseModel):
     proposal: RemediationProposal | None = None
     policy_check: PolicyCheckResult | None = None
     approval: ApprovalRequest | None = None
+    execution: RemediationExecution | None = None
+    recovery: RecoveryVerification | None = None
     tool_calls: list[ToolCallRecord] = Field(default_factory=list)
     timeline: list[IncidentTimelineEvent] = Field(default_factory=list)
     e2e_result: E2EResult | None = None

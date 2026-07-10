@@ -4,6 +4,7 @@ import argparse
 import os
 from pathlib import Path
 
+from .adapters.approvers import AutoApprover, CliApprover
 from .app.workflow import Workflow
 from .domain.schemas import Alert, Incident, Mode
 from .mcp.gateway import MCPToolGateway
@@ -15,7 +16,8 @@ DATA = ROOT / "data"
 ARTIFACTS = ROOT / "artifacts"
 
 
-def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixtures") -> Workflow:
+def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixtures",
+                   approver=None) -> Workflow:
     """The composition root. It loads a platform profile and wires the matching adapters.
 
     Kindly note that only the local-fixtures profile is implemented as of now. The
@@ -33,6 +35,7 @@ def build_workflow(mode: Mode = Mode.DRY_RUN, profile_name: str = "local-fixture
         audit=adapters.audit,
         artifacts_dir=ARTIFACTS,
         mode=mode,
+        approver=approver,
     )
 
 
@@ -82,6 +85,16 @@ def _print_report(inc: Incident) -> None:
         print(f"  dry_run_hash: {a.dry_run_hash}")
         print(f"  expires_at:   {a.expires_at.isoformat()}")
 
+    if inc.execution:
+        ex = inc.execution
+        print(f"\nEXECUTION: {ex.action} on {ex.target}  ok={ex.ok}")
+        print(f"  {ex.note}")
+
+    if inc.recovery:
+        rc = inc.recovery
+        print(f"\nRECOVERY: verified={rc.verified}")
+        print(f"  {rc.note}")
+
     print("\nTIMELINE:")
     for ev in inc.timeline:
         print(f"  {ev.ts.strftime('%H:%M:%S')}  {ev.actor.value:<7} {ev.type:<28} {ev.summary}")
@@ -100,7 +113,11 @@ def _print_report(inc: Incident) -> None:
 
 
 def cmd_run(args: argparse.Namespace) -> None:
-    wf = build_workflow(Mode(args.mode), profile_name=args.profile)
+    mode = Mode(args.mode)
+    approver = None
+    if mode == Mode.APPROVED_WRITES:
+        approver = AutoApprover(approve=True) if args.yes else CliApprover()
+    wf = build_workflow(mode, profile_name=args.profile, approver=approver)
     alert = load_alert(args.scenario)
     incident = wf.run(alert=alert, scenario=args.scenario)
     _print_report(incident)
@@ -120,6 +137,10 @@ def main() -> None:
         "--profile",
         default=os.environ.get("AEGIS_PROFILE", "local-fixtures"),
         help="platform profile under profiles/ (default: env AEGIS_PROFILE, else local-fixtures)",
+    )
+    run_p.add_argument(
+        "--yes", action="store_true",
+        help="auto-approve the write in approved_writes mode (non-interactive demo)",
     )
     run_p.set_defaults(func=cmd_run)
 

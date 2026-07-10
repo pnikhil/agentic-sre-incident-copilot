@@ -163,6 +163,67 @@ def test_mcp_gateway_records_and_returns_typed_results():
     assert record.ok is True
 
 
+def test_approved_writes_executes_and_recovers():
+    """In approved_writes mode with a human approval, the guarded rollback runs and recovery is verified."""
+    from aegis.adapters.approvers import AutoApprover
+    from aegis.domain.schemas import ApprovalStatus
+
+    wf = build_workflow(Mode.APPROVED_WRITES, approver=AutoApprover(approve=True))
+    inc = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+
+    assert inc.execution is not None and inc.execution.ok
+    assert inc.recovery is not None and inc.recovery.verified
+    assert inc.approval is not None and inc.approval.status == ApprovalStatus.CONSUMED
+    assert inc.e2e_result is not None
+    assert inc.e2e_result.result == "Recovered"
+    assert inc.e2e_result.safety_gate == "Pass"
+
+
+def test_approved_writes_rejected_does_not_execute():
+    """If the human rejects, nothing is executed and no recovery is attempted."""
+    from aegis.adapters.approvers import AutoApprover
+
+    wf = build_workflow(Mode.APPROVED_WRITES, approver=AutoApprover(approve=False))
+    inc = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+
+    assert inc.execution is None
+    assert inc.recovery is None
+    assert inc.e2e_result is not None and inc.e2e_result.result == "Rejected by human"
+
+
+def test_guard_rejects_tampered_payload():
+    """The guarded write must refuse if the payload changed after the approval."""
+    from aegis.adapters.fake_executor import FakeExecutor
+    from aegis.app.remediation import ApprovalGuard
+    from aegis.domain.schemas import ApprovalStatus
+
+    wf = build_workflow(Mode.DRY_RUN)
+    inc = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+    approval = inc.approval
+    approval.status = ApprovalStatus.APPROVED
+    guard = ApprovalGuard(FakeExecutor())
+
+    ok, _reason = guard.enforce(proposal=inc.proposal, approval=approval, policy=inc.policy_check)
+    assert ok is True
+
+    inc.proposal.payload["rollback_target"]["to_revision"] = "tampered-revision"
+    ok, reason = guard.enforce(proposal=inc.proposal, approval=approval, policy=inc.policy_check)
+    assert ok is False
+    assert "payload" in reason
+
+
+def test_resume_execution_approves_and_recovers():
+    """The web panel path: a dry-run incident, then a human approval, executes and recovers."""
+    wf = build_workflow(Mode.DRY_RUN)
+    inc = wf.run(alert=load_alert("bad_deploy"), scenario="bad_deploy")
+    assert inc.execution is None  # the dry run stops at the approval request
+
+    wf.resume_execution(inc, approved=True)
+    assert inc.execution is not None and inc.execution.ok
+    assert inc.recovery is not None and inc.recovery.verified
+    assert inc.e2e_result is not None and inc.e2e_result.result == "Recovered"
+
+
 def test_build_workflow_gcp_profile_not_implemented():
     """Through the real build_workflow entrypoint, the GCP profile is declarative only."""
     import pytest
